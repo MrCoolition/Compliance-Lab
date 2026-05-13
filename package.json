@@ -20,6 +20,7 @@
     "@angular/platform-browser": "^21.2.0",
     "@angular/router": "^21.2.0",
     "@neondatabase/serverless": "^1.0.2",
+    "@vercel/node": "^5.4.0",
     "rxjs": "^7.8.2",
     "jszip": "^3.10.1",
     "snowflake-sdk": "^2.1.0",
@@ -32,7 +33,6 @@
     "@angular/cli": "^21.2.0",
     "@angular/compiler-cli": "^21.2.0",
     "@types/node": "^24.10.0",
-    "@vercel/node": "^5.4.0",
     "typescript": "~5.9.3"
   },
   "engines": {
