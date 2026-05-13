@@ -35,7 +35,16 @@ function requestOrigin(request) {
   return host ? `${proto}://${host}` : '';
 }
 
+const APPROVED_LOCAL_CALLBACK = 'http://localhost:4200';
+
 function redirectUriFor(configuredRedirectUri, origin) {
+  const explicitLocal = env('OIDC_LOCAL_REDIRECT_URI', 'OIDC_APPROVED_CALLBACK_URL');
+  if (explicitLocal) {
+    return explicitLocal;
+  }
+  if (origin.startsWith('https://') && configuredRedirectUri.includes('.vercel.app')) {
+    return APPROVED_LOCAL_CALLBACK;
+  }
   if (configuredRedirectUri && !configuredRedirectUri.includes('YOUR_APP.vercel.app')) {
     return configuredRedirectUri;
   }

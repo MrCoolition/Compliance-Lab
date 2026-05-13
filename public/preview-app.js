@@ -99,6 +99,11 @@ const AUTH_CODE_KEY = 'oidc_auth_code';
 const ACCESS_TOKEN_KEY = 'oauth_access_token';
 const ID_TOKEN_KEY = 'oidc_id_token';
 const OIDC_STATE_KEY = 'oidc_state';
+const APPROVED_AUTH_CALLBACK = 'http://localhost:4200';
+const BRIDGE_RETURN_ORIGINS = new Set([
+  'https://project-m1x3k.vercel.app',
+  'http://localhost:4200',
+]);
 
 const state = {
   hub: 'open-stock',
@@ -305,6 +310,48 @@ function parseJwt(token) {
   }
 }
 
+function base64UrlEncodeJson(value) {
+  const json = JSON.stringify(value);
+  const bytes = new TextEncoder().encode(json);
+  let binary = '';
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function base64UrlDecodeJson(value) {
+  try {
+    const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    const binary = window.atob(padded);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+}
+
+function safeOrigin(value) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return '';
+  }
+}
+
+function isAllowedBridgeReturn(value) {
+  const origin = safeOrigin(value);
+  return Boolean(origin && BRIDGE_RETURN_ORIGINS.has(origin));
+}
+
+function parseBridgeState(value) {
+  const parsed = base64UrlDecodeJson(value);
+  if (!parsed || parsed.kind !== 'compliance-lab-oidc') return null;
+  if (!isAllowedBridgeReturn(parsed.returnTo)) return null;
+  return parsed;
+}
+
 function getAccessToken() {
   return localStorage.getItem(ACCESS_TOKEN_KEY) || localStorage.getItem('authToken');
 }
@@ -346,10 +393,61 @@ function generateAndStoreState() {
   return value;
 }
 
+function generateAndStoreAuthState() {
+  const nonce = generateAndStoreState();
+  return base64UrlEncodeJson({
+    kind: 'compliance-lab-oidc',
+    nonce,
+    returnTo: window.location.origin,
+  });
+}
+
 function validateState(value) {
+  const bridged = parseBridgeState(value);
+  if (bridged) {
+    const stored = sessionStorage.getItem(OIDC_STATE_KEY);
+    sessionStorage.removeItem(OIDC_STATE_KEY);
+    return !stored || stored === bridged.nonce;
+  }
   const stored = sessionStorage.getItem(OIDC_STATE_KEY);
   sessionStorage.removeItem(OIDC_STATE_KEY);
   return !stored || stored === value;
+}
+
+function storeAuthTokens(response, code = '') {
+  if (code) localStorage.setItem(AUTH_CODE_KEY, code);
+  if (response.access_token) localStorage.setItem(ACCESS_TOKEN_KEY, response.access_token);
+  if (response.id_token) {
+    localStorage.setItem(ID_TOKEN_KEY, response.id_token);
+    sessionStorage.setItem(ID_TOKEN_KEY, response.id_token);
+  }
+  state.auth.authenticated = Boolean(response.access_token);
+  state.auth.error = '';
+}
+
+function handleAuthBridgeFragment() {
+  if (!window.location.hash.includes('auth_bridge=1')) return false;
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const accessToken = params.get('access_token');
+  if (!accessToken) return false;
+  storeAuthTokens({
+    access_token: accessToken,
+    id_token: params.get('id_token') || '',
+  });
+  window.history.replaceState({}, '', window.location.pathname + window.location.search);
+  return true;
+}
+
+function bridgeBackToReturnOrigin(bridgeState, tokenResponse) {
+  if (!bridgeState?.returnTo || safeOrigin(bridgeState.returnTo) === window.location.origin) return false;
+  const returnUrl = new URL(bridgeState.returnTo);
+  returnUrl.hash = new URLSearchParams({
+    auth_bridge: '1',
+    access_token: tokenResponse.access_token || '',
+    id_token: tokenResponse.id_token || '',
+  }).toString();
+  window.location.href = returnUrl.toString();
+  return true;
 }
 
 function applyAuthClaims() {
@@ -420,6 +518,7 @@ async function api(path, options = {}) {
 
 async function loadAuthConfig() {
   try {
+    handleAuthBridgeFragment();
     const config = await api('/api/Auth/config', { skipAuth: true });
     state.auth = {
       ...state.auth,
@@ -450,10 +549,11 @@ function loginRedirect() {
     render();
     return;
   }
-  const oidcState = generateAndStoreState();
+  const oidcState = generateAndStoreAuthState();
+  const redirectUri = state.auth.redirectUri || APPROVED_AUTH_CALLBACK;
   const params = new URLSearchParams({
     client_id: state.auth.clientId,
-    redirect_uri: state.auth.redirectUri,
+    redirect_uri: redirectUri,
     response_type: 'code',
     scope: 'openid email profile',
     state: oidcState,
@@ -466,6 +566,7 @@ async function handleAuthCallback() {
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
   const oidcState = params.get('state');
+  const bridgeState = parseBridgeState(oidcState);
   if (!code) {
     state.auth.authenticated = hasLocalAuthSession();
     return false;
@@ -482,16 +583,10 @@ async function handleAuthCallback() {
     const response = await api('/api/Auth/exchange-code', {
       method: 'POST',
       skipAuth: true,
-      body: JSON.stringify({ code, redirectUri: state.auth.redirectUri }),
+      body: JSON.stringify({ code, redirectUri: state.auth.redirectUri || APPROVED_AUTH_CALLBACK }),
     });
-    localStorage.setItem(AUTH_CODE_KEY, code);
-    if (response.access_token) localStorage.setItem(ACCESS_TOKEN_KEY, response.access_token);
-    if (response.id_token) {
-      localStorage.setItem(ID_TOKEN_KEY, response.id_token);
-      sessionStorage.setItem(ID_TOKEN_KEY, response.id_token);
-    }
-    state.auth.authenticated = Boolean(response.access_token);
-    state.auth.error = '';
+    storeAuthTokens(response, code);
+    if (bridgeBackToReturnOrigin(bridgeState, response)) return true;
     window.history.replaceState({}, '', window.location.pathname);
     return state.auth.authenticated;
   } catch (error) {
