@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireAuthenticatedRequest } from '../_lib/auth';
-import { getHubRows } from '../_lib/sync';
-import { numberQuery, pageSizeQuery, sendError, sendJson, stringQuery } from '../_lib/http';
-import { requireHubConfig } from '../_lib/hub-config';
+import { requireAuthenticatedRequest } from '../_lib/auth.js';
+import { getHubRows } from '../_lib/sync.js';
+import { numberQuery, pageSizeQuery, sendError, sendJson, stringQuery } from '../_lib/http.js';
+import { requireHubConfig } from '../_lib/hub-config.js';
 
 export default async function handler(request: VercelRequest, response: VercelResponse): Promise<void> {
   if (request.method !== 'GET') {

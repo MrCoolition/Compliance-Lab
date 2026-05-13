@@ -1,5 +1,5 @@
 import { Pool } from '@neondatabase/serverless';
-import { neonTable, requiredEnv } from './env';
+import { neonTable, requiredEnv } from './env.js';
 
 let pool: Pool | undefined;
 

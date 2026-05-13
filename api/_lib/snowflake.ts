@@ -1,6 +1,6 @@
 import snowflake from 'snowflake-sdk';
 import { readFileSync } from 'node:fs';
-import { configuredSnowflakeDatabase, configuredSnowflakeSchema, optionalEnv, requiredEnv } from './env';
+import { configuredSnowflakeDatabase, configuredSnowflakeSchema, optionalEnv, requiredEnv } from './env.js';
 
 export type SnowflakeRow = Record<string, unknown>;
 type SnowflakeConnection = ReturnType<typeof snowflake.createConnection>;

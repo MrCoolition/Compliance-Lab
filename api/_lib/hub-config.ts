@@ -1,4 +1,4 @@
-import { configuredSnowflakeDatabase, configuredSnowflakeSchema, optionalEnv } from './env';
+import { configuredSnowflakeDatabase, configuredSnowflakeSchema, optionalEnv } from './env.js';
 
 export interface HubSourceConfig {
   name: string;

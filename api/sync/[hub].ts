@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { extractBearerToken, validateTokenViaProfile } from '../_lib/auth';
-import { requireHubConfig } from '../_lib/hub-config';
-import { pageSizeQuery, sendError, sendJson, stringQuery } from '../_lib/http';
-import { syncHubToNeon } from '../_lib/sync';
+import { extractBearerToken, validateTokenViaProfile } from '../_lib/auth.js';
+import { requireHubConfig } from '../_lib/hub-config.js';
+import { pageSizeQuery, sendError, sendJson, stringQuery } from '../_lib/http.js';
+import { syncHubToNeon } from '../_lib/sync.js';
 
 function authRequired(): boolean {
   return ['1', 'true', 'yes', 'on'].includes(String(process.env.AUTH_REQUIRED || process.env.OIDC_AUTH_REQUIRED || '').toLowerCase());

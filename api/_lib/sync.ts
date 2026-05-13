@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
-import { dbExecute, dbQuery } from './database';
-import { configuredSnowflakeDatabase, configuredSnowflakeSchema, neonTable } from './env';
-import type { HubConfig, HubSourceConfig } from './hub-config';
-import { insertDateKeyExpression, quoteSnowflakeIdentifier, runSnowflakeQuery, runSnowflakeStatement, type SnowflakeRow } from './snowflake';
+import { dbExecute, dbQuery } from './database.js';
+import { configuredSnowflakeDatabase, configuredSnowflakeSchema, neonTable } from './env.js';
+import type { HubConfig, HubSourceConfig } from './hub-config.js';
+import { insertDateKeyExpression, quoteSnowflakeIdentifier, runSnowflakeQuery, runSnowflakeStatement, type SnowflakeRow } from './snowflake.js';
 
 export interface SyncOptions {
   runDate?: string;

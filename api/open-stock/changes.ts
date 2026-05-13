@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireAuthenticatedRequest } from '../_lib/auth';
-import { readJsonBody, sendError, sendJson } from '../_lib/http';
-import { requireHubConfig } from '../_lib/hub-config';
-import { applyOpenStockChanges } from '../_lib/sync';
+import { requireAuthenticatedRequest } from '../_lib/auth.js';
+import { readJsonBody, sendError, sendJson } from '../_lib/http.js';
+import { requireHubConfig } from '../_lib/hub-config.js';
+import { applyOpenStockChanges } from '../_lib/sync.js';
 
 interface ChangeRequest {
   runDate: string;

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sendError } from './http';
+import { sendError } from './http.js';
 
 interface AuthConfig {
   required: boolean;

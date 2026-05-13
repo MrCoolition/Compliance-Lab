@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireAuthenticatedRequest } from '../_lib/auth';
-import { requireHubConfig } from '../_lib/hub-config';
-import { numberQuery, sendError, sendJson, stringQuery } from '../_lib/http';
-import { fetchRecentSnapshotDates } from '../_lib/sync';
-import { runSnowflakeQuery } from '../_lib/snowflake';
+import { requireAuthenticatedRequest } from '../_lib/auth.js';
+import { requireHubConfig } from '../_lib/hub-config.js';
+import { numberQuery, sendError, sendJson, stringQuery } from '../_lib/http.js';
+import { fetchRecentSnapshotDates } from '../_lib/sync.js';
+import { runSnowflakeQuery } from '../_lib/snowflake.js';
 
 function normalizeSnapshot(value: unknown): string {
   const text = String(value ?? '').trim();

@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireAuthenticatedRequest } from './_lib/auth';
-import { configuredSnowflakeDatabase, configuredSnowflakeSchema } from './_lib/env';
-import { readJsonBody, sendError, sendJson } from './_lib/http';
-import { quoteSnowflakeIdentifier, runSnowflakeQuery, runSnowflakeStatement } from './_lib/snowflake';
+import { requireAuthenticatedRequest } from './_lib/auth.js';
+import { configuredSnowflakeDatabase, configuredSnowflakeSchema } from './_lib/env.js';
+import { readJsonBody, sendError, sendJson } from './_lib/http.js';
+import { quoteSnowflakeIdentifier, runSnowflakeQuery, runSnowflakeStatement } from './_lib/snowflake.js';
 
 interface FeedbackRequest {
   appName: string;

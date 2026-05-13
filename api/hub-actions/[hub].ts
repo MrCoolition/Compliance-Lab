@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireAuthenticatedRequest } from '../_lib/auth';
-import { configuredSnowflakeDatabase, configuredSnowflakeSchema } from '../_lib/env';
-import { readJsonBody, sendError, sendJson } from '../_lib/http';
-import { requireHubConfig, type HubSourceConfig } from '../_lib/hub-config';
-import { insertDateKeyExpression, quoteSnowflakeIdentifier, runSnowflakeQuery, runSnowflakeStatement } from '../_lib/snowflake';
-import { clearHubRowsCache } from '../_lib/sync';
+import { requireAuthenticatedRequest } from '../_lib/auth.js';
+import { configuredSnowflakeDatabase, configuredSnowflakeSchema } from '../_lib/env.js';
+import { readJsonBody, sendError, sendJson } from '../_lib/http.js';
+import { requireHubConfig, type HubSourceConfig } from '../_lib/hub-config.js';
+import { insertDateKeyExpression, quoteSnowflakeIdentifier, runSnowflakeQuery, runSnowflakeStatement } from '../_lib/snowflake.js';
+import { clearHubRowsCache } from '../_lib/sync.js';
 
 const OPENSTOCK_TABLE = `${configuredSnowflakeDatabase()}.${configuredSnowflakeSchema()}.OPENSTOCKREPORT`;
 const OPENSTOCK_KEY = 'DISTCODE MOG DIN';
