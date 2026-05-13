@@ -109,7 +109,14 @@ export default async function handler(request, response) {
       body: params,
     });
     const text = await tokenResponse.text();
-    const parsed = text ? JSON.parse(text) : {};
+    let parsed = {};
+    if (text) {
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        parsed = Object.fromEntries(new URLSearchParams(text));
+      }
+    }
 
     if (!tokenResponse.ok || !parsed.access_token) {
       sendJson(response, 401, {

@@ -133,7 +133,14 @@ export async function exchangeAuthorizationCode(
   });
 
   const text = await response.text();
-  const body = (text ? JSON.parse(text) : {}) as TokenResponse & { error?: string; error_description?: string };
+  let body = {} as TokenResponse & { error?: string; error_description?: string };
+  if (text) {
+    try {
+      body = JSON.parse(text) as TokenResponse & { error?: string; error_description?: string };
+    } catch {
+      body = Object.fromEntries(new URLSearchParams(text)) as TokenResponse & { error?: string; error_description?: string };
+    }
+  }
   if (!response.ok) {
     throw new Error(body.error_description || body.error || `OIDC code exchange failed with ${response.status}.`);
   }

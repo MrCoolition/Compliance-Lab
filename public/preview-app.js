@@ -99,6 +99,7 @@ const AUTH_CODE_KEY = 'oidc_auth_code';
 const ACCESS_TOKEN_KEY = 'oauth_access_token';
 const ID_TOKEN_KEY = 'oidc_id_token';
 const OIDC_STATE_KEY = 'oidc_state';
+const APP_AUTH_BUILD = '20260513-oms-local-callback-v2';
 const APPROVED_AUTH_CALLBACK = 'http://localhost:4200';
 const DEFAULT_BRIDGE_RETURN_ORIGIN = 'https://project-m1x3k.vercel.app';
 const BRIDGE_RETURN_ORIGINS = new Set([
@@ -559,7 +560,9 @@ function loginRedirect() {
     return;
   }
   const oidcState = generateAndStoreAuthState();
-  const redirectUri = state.auth.redirectUri || APPROVED_AUTH_CALLBACK;
+  const redirectUri = window.location.origin.includes('.vercel.app')
+    ? APPROVED_AUTH_CALLBACK
+    : state.auth.redirectUri || APPROVED_AUTH_CALLBACK;
   const params = new URLSearchParams({
     client_id: state.auth.clientId,
     redirect_uri: redirectUri,
@@ -568,7 +571,9 @@ function loginRedirect() {
     state: oidcState,
   });
   const authorizeUrl = state.auth.authorizeUrl || `${state.auth.oidcIssuer}/authorize`;
-  window.location.href = `${authorizeUrl}?${params.toString()}`;
+  const loginUrl = `${authorizeUrl}?${params.toString()}`;
+  sessionStorage.setItem('last_oidc_authorize_url', loginUrl);
+  window.location.href = loginUrl;
 }
 
 async function handleAuthCallback() {
@@ -1466,6 +1471,7 @@ function renderAuthGate() {
           <p class="eyebrow">Secure access</p>
           <h2>Compliance Lab</h2>
           <p>Sign in with your organization account to open the Operations Platform.</p>
+          <p class="muted">Auth build ${APP_AUTH_BUILD} · Callback ${escapeHtml(state.auth.redirectUri || APPROVED_AUTH_CALLBACK)}</p>
           ${state.auth.error ? `<div class="notice error">${escapeHtml(state.auth.error)}</div>` : ''}
           <div class="inline-actions">
             <button class="primary" data-auth-action="login" ${!state.auth.configured ? 'disabled' : ''}>Sign In</button>
