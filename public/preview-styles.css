@@ -357,6 +357,12 @@ button:focus-visible {
   line-height: 1.45;
 }
 
+.bypass-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
 .topbar {
   display: flex;
   justify-content: space-between;

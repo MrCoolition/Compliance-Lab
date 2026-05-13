@@ -623,6 +623,20 @@ function logout() {
   render();
 }
 
+async function applyBypassToken() {
+  const token = document.querySelector('#bypassTokenInput')?.value?.trim();
+  if (!token) {
+    state.auth.error = 'Enter an emergency access token.';
+    render();
+    return;
+  }
+  localStorage.setItem('authToken', token);
+  state.auth.authenticated = true;
+  state.auth.error = '';
+  applyAuthClaims();
+  await loadData();
+}
+
 function clearClientCaches() {
   apiCache.clear();
   tableWindows.clear();
@@ -1477,6 +1491,10 @@ function renderAuthGate() {
             <button class="primary" data-auth-action="login" ${!state.auth.configured ? 'disabled' : ''}>Sign In</button>
             ${state.auth.configured ? '' : '<span class="muted">OIDC environment variables are not configured.</span>'}
           </div>
+          <div class="bypass-row">
+            <input id="bypassTokenInput" type="password" placeholder="Emergency token">
+            <button data-auth-action="bypass">Use Token</button>
+          </div>
         </div>
       </section>
     </main>
@@ -1580,6 +1598,7 @@ function bindEvents() {
     button.addEventListener('click', async () => {
       if (button.dataset.authAction === 'login') loginRedirect();
       if (button.dataset.authAction === 'logout') logout();
+      if (button.dataset.authAction === 'bypass') await applyBypassToken();
     });
   });
 
