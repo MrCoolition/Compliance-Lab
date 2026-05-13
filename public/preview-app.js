@@ -399,7 +399,13 @@ async function api(path, options = {}) {
     ...fetchOptions,
   });
   const text = await response.text();
-  const json = text ? JSON.parse(text) : {};
+  let json = {};
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    const cleanText = text.replace(/\s+/g, ' ').trim();
+    throw new Error(cleanText || `Request returned non-JSON response: ${response.status}`);
+  }
   if (!response.ok) {
     if (response.status === 401 && state.auth.enabled) {
       state.auth.authenticated = false;
