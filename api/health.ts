@@ -1,5 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sendJson } from './_lib/http';
+
+function sendJson(response: VercelResponse, status: number, body: unknown): void {
+  response.status(status).setHeader('content-type', 'application/json; charset=utf-8');
+  response.send(JSON.stringify(body));
+}
 
 export default async function handler(_request: VercelRequest, response: VercelResponse): Promise<void> {
   const authenticator = String(process.env.SNOWFLAKE_AUTHENTICATOR || '').toUpperCase();

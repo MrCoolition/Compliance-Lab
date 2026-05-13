@@ -7,7 +7,7 @@ Snowflake remains the system of truth. The API reads Snowflake directly by defau
 ## Stack
 
 - Angular `21.2.x` app shell
-- Vercel static Angular hosting plus Node.js serverless API routes
+- Vercel static Angular hosting plus Node.js 22 serverless API routes
 - Snowflake Node SDK for source reads and Open Stock write-back
 - Neon Postgres dedicated schema for cached hub rows, sync runs, feedback, and audit logs
 - GitHub Actions CI for install, typecheck, and production build
