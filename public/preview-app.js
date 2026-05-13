@@ -100,8 +100,9 @@ const ACCESS_TOKEN_KEY = 'oauth_access_token';
 const ID_TOKEN_KEY = 'oidc_id_token';
 const OIDC_STATE_KEY = 'oidc_state';
 const APPROVED_AUTH_CALLBACK = 'http://localhost:4200';
+const DEFAULT_BRIDGE_RETURN_ORIGIN = 'https://project-m1x3k.vercel.app';
 const BRIDGE_RETURN_ORIGINS = new Set([
-  'https://project-m1x3k.vercel.app',
+  DEFAULT_BRIDGE_RETURN_ORIGIN,
   'http://localhost:4200',
 ]);
 
@@ -394,12 +395,7 @@ function generateAndStoreState() {
 }
 
 function generateAndStoreAuthState() {
-  const nonce = generateAndStoreState();
-  return base64UrlEncodeJson({
-    kind: 'compliance-lab-oidc',
-    nonce,
-    returnTo: window.location.origin,
-  });
+  return generateAndStoreState();
 }
 
 function validateState(value) {
@@ -441,6 +437,19 @@ function handleAuthBridgeFragment() {
 function bridgeBackToReturnOrigin(bridgeState, tokenResponse) {
   if (!bridgeState?.returnTo || safeOrigin(bridgeState.returnTo) === window.location.origin) return false;
   const returnUrl = new URL(bridgeState.returnTo);
+  returnUrl.hash = new URLSearchParams({
+    auth_bridge: '1',
+    access_token: tokenResponse.access_token || '',
+    id_token: tokenResponse.id_token || '',
+  }).toString();
+  window.location.href = returnUrl.toString();
+  return true;
+}
+
+function bridgeLocalCallbackToVercel(tokenResponse) {
+  if (window.location.origin !== APPROVED_AUTH_CALLBACK) return false;
+  if (!BRIDGE_RETURN_ORIGINS.has(DEFAULT_BRIDGE_RETURN_ORIGIN)) return false;
+  const returnUrl = new URL(DEFAULT_BRIDGE_RETURN_ORIGIN);
   returnUrl.hash = new URLSearchParams({
     auth_bridge: '1',
     access_token: tokenResponse.access_token || '',
@@ -587,6 +596,7 @@ async function handleAuthCallback() {
     });
     storeAuthTokens(response, code);
     if (bridgeBackToReturnOrigin(bridgeState, response)) return true;
+    if (bridgeLocalCallbackToVercel(response)) return true;
     window.history.replaceState({}, '', window.location.pathname);
     return state.auth.authenticated;
   } catch (error) {
