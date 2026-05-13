@@ -1,0 +1,9 @@
+.env
+.env.local
+.env.*.local
+certs/
+node_modules/
+dist/
+.angular/
+__pycache__/
+*.pyc

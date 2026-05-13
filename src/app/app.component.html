@@ -1,0 +1,466 @@
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">CL</span>
+      <div>
+        <h1>Compliance Lab</h1>
+        <p>Compliance operations workspace</p>
+      </div>
+    </div>
+
+    <nav class="hub-nav" aria-label="Hubs">
+      <button
+        *ngFor="let hub of hubs"
+        type="button"
+        [class.active]="hub.key === selectedHubKey"
+        (click)="selectHub(hub.key)"
+      >
+        <span>{{ hub.label }}</span>
+        <small>{{ hub.description }}</small>
+      </button>
+    </nav>
+
+    <section class="sidebar-panel" *ngIf="selectedHubKey === 'open-stock'">
+      <h2>Report controls</h2>
+      <label>
+        Report run date
+        <select [(ngModel)]="reportDate" (ngModelChange)="loadHub()">
+          <option *ngFor="let date of recentDates" [value]="date">{{ formatDateLabel(date) }}</option>
+        </select>
+      </label>
+      <label>
+        Run date override
+        <input type="text" [(ngModel)]="reportDate" (keyup.enter)="loadHub()" placeholder="YYYYMMDD" />
+      </label>
+      <p class="status-line" [class.good]="reportFreshness.tone === 'good'" [class.bad]="reportFreshness.tone === 'bad'">
+        {{ reportFreshness.text }}
+      </p>
+      <p class="muted">Lookback source run: {{ previousRunDate ? formatDateLabel(previousRunDate) : 'None' }}</p>
+      <label class="check-row">
+        <input type="checkbox" [(ngModel)]="lookbackFill" [disabled]="!previousRunDate" />
+        <span>Fill previous-week columns and carry forward blanks</span>
+      </label>
+      <button type="button" class="primary" (click)="runAction('weekly-refresh')" [disabled]="loading || !isSuperUser">
+        Refresh weekly
+      </button>
+      <button type="button" (click)="runAction('persist-lookback')" [disabled]="!lookbackFill || !previousRunDate || saving">
+        Persist lookback
+      </button>
+    </section>
+
+    <section class="sidebar-panel">
+      <h2>Search & filters</h2>
+      <label>
+        Search
+        <input type="search" [(ngModel)]="searchText" (keyup.enter)="loadHub()" placeholder="Brand, DIN, account, comments" />
+      </label>
+
+      <ng-container *ngFor="let filter of selectedHub.filters">
+        <ng-container [ngSwitch]="filter.kind">
+          <label *ngSwitchCase="'multi'">
+            {{ filter.label }}
+            <select multiple [(ngModel)]="filters[filter.key]">
+              <option *ngFor="let option of filterOptions(filter)" [value]="option">{{ option }}</option>
+            </select>
+          </label>
+
+          <label *ngSwitchCase="'single'">
+            {{ filter.label }}
+            <select [(ngModel)]="filters[filter.key]">
+              <option *ngFor="let option of filterOptions(filter)" [value]="option">{{ option }}</option>
+            </select>
+          </label>
+
+          <label *ngSwitchCase="'checkbox'" class="check-row">
+            <input type="checkbox" [(ngModel)]="filters[filter.key]" />
+            <span>{{ filter.label }}</span>
+          </label>
+
+          <label *ngSwitchCase="'text'">
+            {{ filter.label }}
+            <input type="text" [(ngModel)]="filters[filter.key]" />
+          </label>
+        </ng-container>
+      </ng-container>
+
+      <div class="button-row">
+        <button type="button" class="primary" (click)="loadHub()" [disabled]="loading">Apply</button>
+        <button type="button" (click)="resetFiltersForHub()">Reset</button>
+      </div>
+    </section>
+
+    <section class="sidebar-panel user-panel">
+      <label>
+        User
+        <input type="text" [(ngModel)]="userName" placeholder="Your name" />
+      </label>
+      <small>Used in saved change history and workflow confirmations.</small>
+    </section>
+  </aside>
+
+  <main class="content">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">{{ response?.sync?.lastStatus || 'ready' }}</p>
+        <h2>{{ selectedHubLabel }}</h2>
+        <p>{{ selectedHub.description }}</p>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" (click)="downloadCsv('display')" [disabled]="displayRows.length === 0">Export CSV</button>
+        <button type="button" class="primary" (click)="saveChanges()" [disabled]="!canSave">
+          Save {{ changedCount || '' }} change<span *ngIf="changedCount !== 1">s</span>
+        </button>
+      </div>
+    </header>
+
+    <figure class="lab-banner" aria-label="Compliance Lab banner">
+      <img src="/compliance-lab-poster.png" alt="Compliance Lab illustrated workstation poster" />
+    </figure>
+
+    <details class="guide-panel">
+      <summary>User Guide</summary>
+      <ol>
+        <li *ngFor="let step of selectedHub.guide">{{ step }}</li>
+      </ol>
+    </details>
+
+    <div class="notice success" *ngIf="statusMessage">{{ statusMessage }}</div>
+    <div class="notice error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+    <section class="metric-grid" aria-label="Hub metrics">
+      <article *ngFor="let metric of metricCards()">
+        <span>{{ metric.label }}</span>
+        <strong>{{ metric.value }}</strong>
+        <small *ngIf="metric.hint">{{ metric.hint }}</small>
+      </article>
+    </section>
+
+    <div class="tabs">
+      <button type="button" *ngFor="let tab of tabs" [class.active]="activeTab === tab.key" (click)="setTab(tab.key)">
+        {{ tab.label }}
+      </button>
+    </div>
+
+    <div class="source-tabs" *ngIf="sourceTabs.length > 1 && selectedHubKey !== 'open-stock'">
+      <button type="button" *ngFor="let source of sourceTabs" [class.active]="activeSource === source.key" (click)="setSource(source.key)">
+        {{ source.label }}
+      </button>
+    </div>
+
+    <ng-container [ngSwitch]="selectedHubKey">
+      <ng-container *ngSwitchCase="'open-stock'">
+        <section class="panel" *ngIf="activeTab === 'worklist'">
+          <div class="panel-heading">
+            <div>
+              <h3>Worklist</h3>
+              <p>Editing run date: {{ formatDateLabel(reportDate) }}.</p>
+            </div>
+            <div class="button-row">
+              <span class="pill">{{ displayRows.length }} visible</span>
+              <button type="button" (click)="runAction('undo-inline-save')" [disabled]="saving">Undo last inline save</button>
+            </div>
+          </div>
+          <ng-container *ngTemplateOutlet="tableTemplate"></ng-container>
+          <details class="inline-panel" *ngIf="changedCount > 0" open>
+            <summary>Preview pending changes</summary>
+            <ul>
+              <li *ngFor="let change of changedRows | keyvalue">
+                {{ change.key }}: {{ change.value.values | json }}
+              </li>
+            </ul>
+          </details>
+        </section>
+
+        <section class="insights-layout" *ngIf="activeTab === 'insights'">
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h3>Insight highlights</h3>
+                <p>Key signals from this run.</p>
+              </div>
+            </div>
+            <div class="stack-list">
+              <div *ngFor="let row of openStockHighlights()">
+                <span>{{ row.label }}</span>
+                <strong>{{ row.value }}</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h3>Root cause</h3>
+                <p>Out-of-stock health by missing ETA and PO.</p>
+              </div>
+            </div>
+            <div class="stack-list">
+              <div *ngFor="let row of rootCauseRows()">
+                <span>{{ row.label }}</span>
+                <strong>{{ row.value }}</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h3>ETA timing</h3>
+                <p>Aging buckets computed from parsed ETA dates.</p>
+              </div>
+            </div>
+            <div class="stack-list">
+              <div *ngFor="let row of etaBucketRows()">
+                <span>{{ row.label }}</span>
+                <strong>{{ row.value }}</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h3>Action list</h3>
+                <p>Out-of-stock rows missing ETA or PO.</p>
+              </div>
+              <button type="button" (click)="downloadCsv('attention')" [disabled]="attentionRows.length === 0">Export</button>
+            </div>
+            <div class="action-count">{{ attentionRows.length }}</div>
+          </article>
+
+          <article class="panel wide">
+            <div class="panel-heading">
+              <div>
+                <h3>Priority rows</h3>
+                <p>First 100 action-list rows.</p>
+              </div>
+            </div>
+            <ng-container *ngTemplateOutlet="priorityRowsTemplate"></ng-container>
+          </article>
+        </section>
+
+        <section class="data-grid" *ngIf="activeTab === 'data'">
+          <article class="panel">
+            <h3>Exports</h3>
+            <p>Download the current view or the attention list.</p>
+            <div class="button-row">
+              <button type="button" class="primary" (click)="downloadCsv('display')" [disabled]="displayRows.length === 0">Current view CSV</button>
+              <button type="button" (click)="downloadCsv('attention')" [disabled]="attentionRows.length === 0">Attention CSV</button>
+              <button type="button" (click)="downloadCsv('all')" [disabled]="rowsForSource.length === 0">Full loaded CSV</button>
+            </div>
+          </article>
+
+          <article class="panel">
+            <h3>Bulk upload</h3>
+            <p>Paste or upload CSV with key plus editable columns.</p>
+            <input type="file" accept=".csv,text/csv" (change)="handleUploadFile($event)" />
+            <textarea [(ngModel)]="uploadText" rows="7" placeholder="DISTCODE MOG DIN,In Stock (Y/N?),ETA,PO #"></textarea>
+            <button type="button" class="primary" (click)="applyUpload()" [disabled]="!uploadText.trim()">Apply upload</button>
+          </article>
+
+          <article class="panel wide" *ngIf="uploadPreviewRows.length > 0">
+            <div class="panel-heading">
+              <div>
+                <h3>Upload preview</h3>
+                <p>First rows parsed from the upload.</p>
+              </div>
+            </div>
+            <pre>{{ uploadPreviewRows | json }}</pre>
+          </article>
+
+          <article class="panel wide">
+            <ng-container *ngTemplateOutlet="tableTemplate"></ng-container>
+          </article>
+        </section>
+      </ng-container>
+
+      <ng-container *ngSwitchCase="'dc-matrix'">
+        <section class="data-grid">
+          <article class="panel" *ngIf="activeTab === 'add-row'">
+            <h3>Add New Row</h3>
+            <p>Select a distributor code, enter editable detail, and submit the row.</p>
+            <div class="form-grid">
+              <label>Distributor Code<input type="text" placeholder="Supply chain code" /></label>
+              <label>Short Name<input type="text" placeholder="Short name" /></label>
+              <label>MOG Type<input type="text" placeholder="MOG type" /></label>
+            </div>
+            <button type="button" class="primary" (click)="runAction('submit-new-row')">Submit row</button>
+          </article>
+
+          <article class="panel wide">
+            <div class="panel-heading">
+              <div>
+                <h3>{{ activeTab === 'upload' ? 'Upload Preview' : 'Update Existing Row' }}</h3>
+                <p>Locked identity columns are shown for context; matrix detail columns are editable.</p>
+              </div>
+              <button type="button" class="primary" (click)="saveChanges()" [disabled]="!canSave">Save changes</button>
+            </div>
+            <ng-container *ngTemplateOutlet="tableTemplate"></ng-container>
+          </article>
+
+          <article class="panel" *ngIf="activeTab === 'upload'">
+            <h3>CSV upload</h3>
+            <input type="file" accept=".csv,text/csv" (change)="handleUploadFile($event)" />
+            <textarea [(ngModel)]="uploadText" rows="7" placeholder="SUPPLY_CHAIN_CODE,MOG_TYPE,ITRADE_NAME"></textarea>
+            <button type="button" class="primary" (click)="runAction('apply-matrix-upload')" [disabled]="!uploadText.trim()">Apply upload</button>
+          </article>
+        </section>
+      </ng-container>
+
+      <ng-container *ngSwitchCase="'unlocked-accounts'">
+        <section class="data-grid">
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h3>{{ activeTab === 'locked' ? 'Locked Accounts' : activeTab === 'history' ? 'History Export' : 'Unlocked Accounts' }}</h3>
+                <p>Filtered rows: {{ displayRows.length }}.</p>
+              </div>
+            </div>
+            <div class="button-row" *ngIf="activeTab === 'unlocked'">
+              <button type="button" class="danger" (click)="runAction('lock-filtered')" [disabled]="displayRows.length === 0">Lock filtered set</button>
+              <button type="button" (click)="runAction('bl-transfer')" [disabled]="displayRows.length === 0">BL transfer filtered set</button>
+            </div>
+            <div class="button-row" *ngIf="activeTab === 'locked'">
+              <button type="button" class="primary" (click)="runAction('unlock-filtered')" [disabled]="displayRows.length === 0">Unlock filtered set</button>
+            </div>
+          </article>
+
+          <article class="panel">
+            <h3>Batch Update Export / Upload</h3>
+            <p>Round-trip the current tab using the template column order.</p>
+            <div class="button-row">
+              <button type="button" (click)="downloadCsv('display')" [disabled]="displayRows.length === 0">Download template CSV</button>
+              <button type="button" class="primary" (click)="runAction('apply-account-upload')" [disabled]="!uploadText.trim()">Apply batch upload</button>
+            </div>
+            <input type="file" accept=".csv,text/csv" (change)="handleUploadFile($event)" />
+            <textarea [(ngModel)]="uploadText" rows="5" placeholder="Paste completed template CSV"></textarea>
+          </article>
+
+          <article class="panel wide">
+            <ng-container *ngTemplateOutlet="tableTemplate"></ng-container>
+          </article>
+        </section>
+      </ng-container>
+
+      <ng-container *ngSwitchCase="'slow-dead'">
+        <section class="insights-layout" *ngIf="activeTab === 'insights'">
+          <article class="panel">
+            <h3>Sector value distribution</h3>
+            <div class="stack-list">
+              <div *ngFor="let row of slowDeadBreakdown('Sector', 'True Extended Value')">
+                <span>{{ row.label }}</span>
+                <strong>{{ row.value }}</strong>
+              </div>
+            </div>
+          </article>
+          <article class="panel">
+            <h3>Category QOH distribution</h3>
+            <div class="stack-list">
+              <div *ngFor="let row of slowDeadBreakdown('Category', 'QOH')">
+                <span>{{ row.label }}</span>
+                <strong>{{ row.value }}</strong>
+              </div>
+            </div>
+          </article>
+        </section>
+        <section class="panel" *ngIf="activeTab !== 'insights'">
+          <ng-container *ngTemplateOutlet="tableTemplate"></ng-container>
+        </section>
+      </ng-container>
+
+      <ng-container *ngSwitchDefault>
+        <section class="data-grid">
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h3>{{ tabs[0]?.label || selectedHubLabel }}</h3>
+                <p>Rows: {{ displayRows.length }}. Columns: {{ displayColumns.length }}.</p>
+              </div>
+              <button type="button" (click)="downloadCsv('display')" [disabled]="displayRows.length === 0">Export</button>
+            </div>
+          </article>
+          <article class="panel wide">
+            <ng-container *ngTemplateOutlet="tableTemplate"></ng-container>
+          </article>
+        </section>
+      </ng-container>
+    </ng-container>
+
+    <section class="feedback">
+      <div>
+        <h3>Feedback</h3>
+        <p>Send notes for triage.</p>
+      </div>
+      <label>
+        Rating
+        <input type="number" min="1" max="5" [(ngModel)]="feedbackRating" />
+      </label>
+      <label class="feedback-text">
+        Notes
+        <input type="text" [(ngModel)]="feedbackText" placeholder="What should change next?" />
+      </label>
+      <button type="button" (click)="submitFeedback()" [disabled]="!feedbackText.trim()">Submit</button>
+    </section>
+  </main>
+</div>
+
+<ng-template #tableTemplate>
+  <div class="table-scroll" [class.loading]="loading">
+    <table>
+      <thead>
+        <tr>
+          <th *ngFor="let column of displayColumns">{{ column }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of displayRows">
+          <td *ngFor="let column of displayColumns" [class.editable]="isEditableColumn(column)" [class.changed]="isChanged(row, column)">
+            <ng-container *ngIf="isEditableColumn(column); else readCell">
+              <select
+                *ngIf="optionsForColumn(column).length > 0; else textEditor"
+                [ngModel]="cell(row, column)"
+                (ngModelChange)="updateCell(row, column, $event)"
+                [attr.aria-label]="column"
+              >
+                <option *ngFor="let option of optionsForColumn(column)" [value]="option">{{ option || 'Blank' }}</option>
+              </select>
+              <ng-template #textEditor>
+                <input [ngModel]="cell(row, column)" (ngModelChange)="updateCell(row, column, $event)" [attr.aria-label]="column" />
+              </ng-template>
+            </ng-container>
+            <ng-template #readCell>{{ cell(row, column) }}</ng-template>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="empty" *ngIf="!loading && displayRows.length === 0">No rows found for this view.</div>
+  </div>
+</ng-template>
+
+<ng-template #priorityRowsTemplate>
+  <div class="table-scroll compact">
+    <table>
+      <thead>
+        <tr>
+          <th>DISTRIBUTOR NAME</th>
+          <th>SCS</th>
+          <th>DISTCODE MOG DIN</th>
+          <th>DESCRIPTION</th>
+          <th>ETA</th>
+          <th>PO #</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of attentionRows.slice(0, 100)">
+          <td>{{ cell(row, 'DISTRIBUTOR NAME') }}</td>
+          <td>{{ cell(row, 'SCS') }}</td>
+          <td>{{ cell(row, 'DISTCODE MOG DIN') }}</td>
+          <td>{{ cell(row, 'DESCRIPTION') }}</td>
+          <td>{{ cell(row, 'ETA') }}</td>
+          <td>{{ cell(row, 'PO #') }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="empty" *ngIf="attentionRows.length === 0">No action-list rows in the current view.</div>
+  </div>
+</ng-template>

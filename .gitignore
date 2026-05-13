@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.angular/
+.vercel/
+.env
+.env.local
+.env.*.local
+certs/*.pem
+certs/*.cer
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+server.out.log
+server.err.log
+__pycache__/
+*.pyc

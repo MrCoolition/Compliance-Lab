@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/compliance-lab/browser",
+  "rewrites": [
+    {
+      "source": "/api/auth/config",
+      "destination": "/api/Auth/config"
+    },
+    {
+      "source": "/api/auth/exchange-code",
+      "destination": "/api/Auth/exchange-code"
+    },
+    {
+      "source": "/((?!api/.*).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "functions": {
+    "api/**/*.ts": {
+      "maxDuration": 60
+    }
+  }
+}
