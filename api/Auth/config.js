@@ -77,15 +77,14 @@ export default function handler(request, response) {
     return;
   }
 
-  const config = authConfig(request);
   sendJson(response, 200, {
-    enabled: config.enabled,
-    required: config.required,
-    configured: config.configured,
-    oidcIssuer: config.oidcIssuer,
-    authorizeUrl: config.authorizeUrl,
-    clientId: config.clientId,
-    redirectUri: config.redirectUri,
-    logoutUrl: config.logoutUrl,
+    enabled: false,
+    required: false,
+    configured: false,
+    oidcIssuer: '',
+    authorizeUrl: '',
+    clientId: '',
+    redirectUri: requestOrigin(request),
+    logoutUrl: '',
   });
 }

@@ -99,7 +99,7 @@ const AUTH_CODE_KEY = 'oidc_auth_code';
 const ACCESS_TOKEN_KEY = 'oauth_access_token';
 const ID_TOKEN_KEY = 'oidc_id_token';
 const OIDC_STATE_KEY = 'oidc_state';
-const APP_AUTH_BUILD = '20260513-oms-local-callback-v2';
+const APP_AUTH_BUILD = '20260519-no-auth-demo';
 const APPROVED_AUTH_CALLBACK = 'http://localhost:4200';
 const DEFAULT_BRIDGE_RETURN_ORIGIN = 'https://project-m1x3k.vercel.app';
 const BRIDGE_RETURN_ORIGINS = new Set([
@@ -469,10 +469,6 @@ function applyAuthClaims() {
 
 function authHeaders(options = {}) {
   const headers = { ...(options.headers || {}) };
-  if (!options.skipAuth) {
-    const token = getAccessToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
-  }
   return headers;
 }
 
@@ -527,113 +523,43 @@ async function api(path, options = {}) {
 }
 
 async function loadAuthConfig() {
-  try {
-    handleAuthBridgeFragment();
-    const config = await api('/api/Auth/config', { skipAuth: true });
-    state.auth = {
-      ...state.auth,
-      checked: true,
-      enabled: Boolean(config.enabled),
-      required: Boolean(config.required),
-      configured: Boolean(config.configured),
-      oidcIssuer: String(config.oidcIssuer || ''),
-      authorizeUrl: String(config.authorizeUrl || ''),
-      clientId: String(config.clientId || ''),
-      redirectUri: String(config.redirectUri || window.location.origin),
-      logoutUrl: String(config.logoutUrl || ''),
-      authenticated: hasLocalAuthSession(),
-      error: '',
-    };
-    await handleAuthCallback();
-    applyAuthClaims();
-  } catch (error) {
-    state.auth.checked = true;
-    state.auth.error = error.message;
-    if (state.auth.required) state.error = error.message;
+  state.auth = {
+    ...state.auth,
+    checked: true,
+    enabled: false,
+    required: false,
+    configured: false,
+    oidcIssuer: '',
+    authorizeUrl: '',
+    clientId: '',
+    redirectUri: window.location.origin,
+    logoutUrl: '',
+    authenticated: true,
+    error: '',
+  };
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('code') || params.has('state') || params.has('ticket')) {
+    window.history.replaceState({}, '', window.location.pathname);
   }
 }
 
 function loginRedirect() {
-  if (!state.auth.configured || !state.auth.oidcIssuer || !state.auth.clientId) {
-    setMessage('', 'OIDC login is not configured for this environment.');
-    render();
-    return;
-  }
-  const oidcState = generateAndStoreAuthState();
-  const redirectUri = window.location.origin.includes('.vercel.app')
-    ? APPROVED_AUTH_CALLBACK
-    : state.auth.redirectUri || APPROVED_AUTH_CALLBACK;
-  const params = new URLSearchParams({
-    client_id: state.auth.clientId,
-    redirect_uri: redirectUri,
-    response_type: 'code',
-    scope: 'openid email profile',
-    state: oidcState,
-  });
-  const authorizeUrl = state.auth.authorizeUrl || `${state.auth.oidcIssuer}/authorize`;
-  const loginUrl = `${authorizeUrl}?${params.toString()}`;
-  sessionStorage.setItem('last_oidc_authorize_url', loginUrl);
-  window.location.href = loginUrl;
+  return false;
 }
 
 async function handleAuthCallback() {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get('code');
-  const oidcState = params.get('state');
-  const bridgeState = parseBridgeState(oidcState);
-  if (!code) {
-    state.auth.authenticated = hasLocalAuthSession();
-    return false;
-  }
-
-  if (oidcState && !validateState(oidcState)) {
-    clearLocalSession();
-    state.auth.authenticated = false;
-    state.auth.error = 'State parameter validation failed.';
-    return false;
-  }
-
-  try {
-    const response = await api('/api/Auth/exchange-code', {
-      method: 'POST',
-      skipAuth: true,
-      body: JSON.stringify({ code, redirectUri: state.auth.redirectUri || APPROVED_AUTH_CALLBACK }),
-    });
-    storeAuthTokens(response, code);
-    if (bridgeBackToReturnOrigin(bridgeState, response)) return true;
-    if (bridgeLocalCallbackToVercel(response)) return true;
-    window.history.replaceState({}, '', window.location.pathname);
-    return state.auth.authenticated;
-  } catch (error) {
-    clearLocalSession();
-    state.auth.authenticated = false;
-    state.auth.error = error.message;
-    return false;
-  }
+  return false;
 }
 
 function logout() {
-  clearLocalSession();
-  state.auth.authenticated = false;
-  const service = encodeURIComponent(window.location.origin);
-  if (state.auth.logoutUrl) {
-    window.location.href = `${state.auth.logoutUrl}?service=${service}`;
-    return;
-  }
+  state.auth.authenticated = true;
   render();
 }
 
 async function applyBypassToken() {
-  const token = document.querySelector('#bypassTokenInput')?.value?.trim();
-  if (!token) {
-    state.auth.error = 'Enter an emergency access token.';
-    render();
-    return;
-  }
-  localStorage.setItem('authToken', token);
   state.auth.authenticated = true;
   state.auth.error = '';
-  applyAuthClaims();
   await loadData();
 }
 
@@ -1370,14 +1296,8 @@ function renderTopActions() {
   const openStock = state.hub === 'open-stock';
   const unlocked = state.hub === 'unlocked-accounts';
   const sourceName = state.source || '';
-  const authButton = state.auth.enabled
-    ? state.auth.authenticated
-      ? '<button data-auth-action="logout">Sign Out</button>'
-      : '<button class="primary" data-auth-action="login">Sign In</button>'
-    : '';
   return `
     <div class="topbar-actions">
-      ${authButton}
       <button data-action="export-view">CSV</button>
       <button data-action="export-xlsx">Excel</button>
       <button data-action="export-zip">CSV ZIP</button>
@@ -1478,27 +1398,7 @@ function renderHubBody() {
 }
 
 function renderAuthGate() {
-  return `
-    <main class="content auth-content">
-      <section class="auth-gate">
-        <div class="auth-card">
-          <p class="eyebrow">Secure access</p>
-          <h2>Compliance Lab</h2>
-          <p>Sign in with your organization account to open the Operations Platform.</p>
-          <p class="muted">Auth build ${APP_AUTH_BUILD} · Callback ${escapeHtml(state.auth.redirectUri || APPROVED_AUTH_CALLBACK)}</p>
-          ${state.auth.error ? `<div class="notice error">${escapeHtml(state.auth.error)}</div>` : ''}
-          <div class="inline-actions">
-            <button class="primary" data-auth-action="login" ${!state.auth.configured ? 'disabled' : ''}>Sign In</button>
-            ${state.auth.configured ? '' : '<span class="muted">OIDC environment variables are not configured.</span>'}
-          </div>
-          <div class="bypass-row">
-            <input id="bypassTokenInput" type="password" placeholder="Emergency token">
-            <button data-auth-action="bypass">Use Token</button>
-          </div>
-        </div>
-      </section>
-    </main>
-  `;
+  return renderMain();
 }
 
 function renderLoadingShell() {
@@ -1517,7 +1417,6 @@ function renderLoadingShell() {
 
 function renderMain() {
   if (!state.auth.checked) return renderLoadingShell();
-  if (state.auth.required && !state.auth.authenticated) return renderAuthGate();
   const meta = hubMeta();
   return `
     <main class="content">

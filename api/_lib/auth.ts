@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sendError } from './http.js';
 
 interface AuthConfig {
   required: boolean;
@@ -85,17 +84,15 @@ function authConfig(request: VercelRequest): AuthConfig {
 }
 
 export function publicAuthConfig(request: VercelRequest): Record<string, unknown> {
-  const config = authConfig(request);
-  const configured = Boolean(config.authority && config.clientId);
   return {
-    enabled: configured || config.required,
-    required: config.required,
-    configured,
-    oidcIssuer: config.authority,
-    authorizeUrl: config.authorizeUrl,
-    clientId: config.clientId,
-    redirectUri: config.redirectUri,
-    logoutUrl: config.logoutUrl,
+    enabled: false,
+    required: false,
+    configured: false,
+    oidcIssuer: '',
+    authorizeUrl: '',
+    clientId: '',
+    redirectUri: originFor(request),
+    logoutUrl: '',
   };
 }
 
@@ -183,19 +180,5 @@ export async function validateTokenViaProfile(request: VercelRequest, token: str
 }
 
 export async function requireAuthenticatedRequest(request: VercelRequest, response: VercelResponse): Promise<boolean> {
-  const config = authConfig(request);
-  if (!config.required) return true;
-
-  const token = extractBearerToken(request);
-  if (!token) {
-    sendError(response, 401, 'Authentication is required.');
-    return false;
-  }
-
-  const claims = await validateTokenViaProfile(request, token);
-  if (!claims) {
-    sendError(response, 401, 'Token validation failed.');
-    return false;
-  }
   return true;
 }

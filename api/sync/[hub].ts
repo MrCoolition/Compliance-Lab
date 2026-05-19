@@ -1,21 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { extractBearerToken, validateTokenViaProfile } from '../_lib/auth.js';
 import { requireHubConfig } from '../_lib/hub-config.js';
 import { pageSizeQuery, sendError, sendJson, stringQuery } from '../_lib/http.js';
 import { syncHubToNeon } from '../_lib/sync.js';
 
-function authRequired(): boolean {
-  return ['1', 'true', 'yes', 'on'].includes(String(process.env.AUTH_REQUIRED || process.env.OIDC_AUTH_REQUIRED || '').toLowerCase());
-}
-
 async function isAuthorized(request: VercelRequest): Promise<boolean> {
-  if (authRequired()) {
-    const token = extractBearerToken(request);
-    if (token && (await validateTokenViaProfile(request, token))) {
-      return true;
-    }
-  }
-
   const syncKey = process.env.SYNC_API_KEY;
   if (process.env.ALLOW_UI_SYNC === 'true' && !syncKey) {
     return true;

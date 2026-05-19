@@ -78,7 +78,7 @@ def with_leading_slash(value: str, fallback: str) -> str:
 
 
 def auth_required() -> bool:
-    return truthy_env("AUTH_REQUIRED") or truthy_env("OIDC_AUTH_REQUIRED")
+    return False
 
 
 def auth_authority() -> str:
@@ -136,16 +136,15 @@ def auth_logout_url() -> str:
 
 
 def public_auth_config(headers=None) -> dict[str, Any]:
-    configured = bool(auth_authority() and auth_client_id())
     return {
-        "enabled": configured or auth_required(),
-        "required": auth_required(),
-        "configured": configured,
-        "oidcIssuer": auth_authority(),
-        "authorizeUrl": auth_authorize_url(),
-        "clientId": auth_client_id(),
+        "enabled": False,
+        "required": False,
+        "configured": False,
+        "oidcIssuer": "",
+        "authorizeUrl": "",
+        "clientId": "",
         "redirectUri": redirect_uri_for(headers),
-        "logoutUrl": auth_logout_url(),
+        "logoutUrl": "",
     }
 
 
@@ -236,10 +235,7 @@ def is_public_api_path(path: str) -> bool:
 
 
 def is_authorized(headers) -> bool:
-    if not auth_required():
-        return True
-    token = bearer_token(headers)
-    return bool(token and validate_token_via_profile(token))
+    return True
 
 REPORT_DB = os.environ.get("SNOWFLAKE_DATABASE") or os.environ.get("SNOWFLAKE_DB") or "FOODBUY_MASALA_PROD"
 REPORT_SCHEMA = os.environ.get("SNOWFLAKE_SCHEMA") or "COMPLIANCE_LAB"
