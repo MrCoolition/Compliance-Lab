@@ -14,6 +14,14 @@ function hasSnowflakeAuth() {
   );
 }
 
+function snowflakeAuthenticator() {
+  return String(process.env.SNOWFLAKE_AUTHENTICATOR || '').toUpperCase() || 'PASSWORD_OR_KEY';
+}
+
+function snowflakeHostedReady() {
+  return hasSnowflakeAuth() && snowflakeAuthenticator() !== 'EXTERNALBROWSER';
+}
+
 export default function handler(_request, response) {
   const body = {
     ok: true,
@@ -30,11 +38,9 @@ export default function handler(_request, response) {
       snowflakeAccount: Boolean(process.env.SNOWFLAKE_ACCOUNT),
       snowflakeUsername: Boolean(process.env.SNOWFLAKE_USERNAME),
       snowflakeAuth: hasSnowflakeAuth(),
+      snowflakeAuthenticator: snowflakeAuthenticator(),
+      snowflakeHostedReady: snowflakeHostedReady(),
       snowflakeWarehouse: Boolean(process.env.SNOWFLAKE_WAREHOUSE),
-      oidcAuthority: Boolean(process.env.OIDC_AUTHORITY),
-      oidcClientId: Boolean(process.env.OIDC_CLIENT_ID),
-      oidcClientSecret: Boolean(process.env.OIDC_CLIENT_SECRET),
-      oidcRedirectUri: Boolean(process.env.OIDC_REDIRECT_URI),
     },
   };
 

@@ -35,6 +35,12 @@ function createConnection(): SnowflakeConnection {
   const browserSso = authenticatorUpper === 'EXTERNALBROWSER';
   const oauth = authenticatorUpper === 'OAUTH';
 
+  if (browserSso && process.env.VERCEL) {
+    throw new Error(
+      'Snowflake EXTERNALBROWSER authentication is only supported for local desktop preview. Hosted Vercel functions need SNOWFLAKE_PASSWORD, SNOWFLAKE_PRIVATE_KEY, or SNOWFLAKE_AUTHENTICATOR=OAUTH with SNOWFLAKE_OAUTH_TOKEN.',
+    );
+  }
+
   if (oauth && !oauthToken) {
     throw new Error('Missing Snowflake OAuth token. Set SNOWFLAKE_OAUTH_TOKEN.');
   }

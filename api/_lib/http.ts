@@ -6,8 +6,12 @@ export function sendJson(response: VercelResponse, status: number, body: unknown
 }
 
 export function sendError(response: VercelResponse, status: number, message: string, details?: unknown): void {
+  const detailMessage = details instanceof Error ? details.message : '';
+  const safeMessage = detailMessage.startsWith('Snowflake EXTERNALBROWSER authentication')
+    ? detailMessage
+    : message;
   sendJson(response, status, {
-    error: message,
+    error: safeMessage,
     details: process.env.NODE_ENV === 'production' ? undefined : details,
   });
 }
