@@ -1024,15 +1024,39 @@ function groupCount(rows, column, predicate = () => true, limit = 12) {
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit);
 }
 
-function renderBars(items, format = numberFormat) {
-  const max = Math.max(...items.map(([, value]) => Number(value) || 0), 1);
-  return `<div class="bars">${items
+function groupSum(rows, groupColumn, valueColumn, predicate = () => true, limit = 12) {
+  const sums = new Map();
+  rows.forEach((row) => {
+    if (!predicate(row)) return;
+    const key = cell(row, groupColumn).trim() || '(blank)';
+    sums.set(key, (sums.get(key) || 0) + Number(rawCell(row, valueColumn) || 0));
+  });
+  return [...sums.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit);
+}
+
+function renderBars(items, format = numberFormat, options = {}) {
+  const rows = items
+    .map(([label, value]) => [String(label || '(blank)'), Number(value) || 0])
+    .filter(([, value]) => Number.isFinite(value));
+  const max = Math.max(...rows.map(([, value]) => value), 1);
+  const total = rows.reduce((sum, [, value]) => sum + value, 0);
+  const compact = options.compact ? ' compact-bars' : '';
+
+  if (!rows.length) {
+    return '<div class="empty">No insight data available for this view.</div>';
+  }
+
+  return `<div class="bars${compact}">${rows
     .map(
-      ([label, value]) => `<div class="bar-row">
-        <span>${escapeHtml(label)}</span>
-        <div class="bar-track"><span style="width:${Math.max(2, (Number(value || 0) / max) * 100)}%"></span></div>
-        <strong>${escapeHtml(format(value))}</strong>
-      </div>`,
+      ([label, value], index) => {
+        const width = value > 0 ? Math.max(1.5, (value / max) * 100) : 0;
+        const share = total ? `${((value / total) * 100).toFixed(value / total < 0.01 ? 1 : 0)}%` : '';
+        return `<div class="bar-row ${index === 0 ? 'leader' : ''}">
+        <span class="bar-label" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+        <div class="bar-track" aria-label="${escapeHtml(`${label}: ${format(value)}`)}"><span style="width:${width}%"></span></div>
+        <strong>${escapeHtml(format(value))}${share ? `<small>${escapeHtml(share)}</small>` : ''}</strong>
+      </div>`;
+      },
     )
     .join('')}</div>`;
 }
@@ -1147,14 +1171,9 @@ function renderSlowDeadInsights() {
   const intentional = rows.filter((row) => norm(rawCell(row, 'Intentional?')) === 'Y').length;
   const totalValue = rows.reduce((sum, row) => sum + Number(rawCell(row, 'True Extended Value') || 0), 0);
   const qoh = rows.reduce((sum, row) => sum + Number(rawCell(row, 'QOH') || 0), 0);
-  const sectorValue = groupCount(rows, 'Sector', () => true, 20).map(([sector]) => [
-    sector,
-    rows.filter((row) => (cell(row, 'Sector').trim() || '(blank)') === sector).reduce((sum, row) => sum + Number(rawCell(row, 'True Extended Value') || 0), 0),
-  ]);
-  const categoryQoh = groupCount(rows, 'Category', () => true, 25).map(([category]) => [
-    category,
-    rows.filter((row) => (cell(row, 'Category').trim() || '(blank)') === category).reduce((sum, row) => sum + Number(rawCell(row, 'QOH') || 0), 0),
-  ]);
+  const sectorValue = groupSum(rows, 'Sector', 'True Extended Value', () => true, 20);
+  const categoryQoh = groupSum(rows, 'Category', 'QOH', () => true, 25);
+  const noticeValue = groupSum(rows, 'NOTICE', 'True Extended Value', () => true, 20);
   return `
     <section class="metric-grid compact-metrics">
       ${renderMetricCard('Total S&D', total)}
@@ -1166,7 +1185,7 @@ function renderSlowDeadInsights() {
     <section class="insights-grid">
       <article class="panel"><div class="panel-heading"><h3>Sector Value</h3></div>${renderBars(sectorValue, moneyFormat)}</article>
       <article class="panel"><div class="panel-heading"><h3>Category QOH</h3></div>${renderBars(categoryQoh)}</article>
-      <article class="panel wide"><div class="panel-heading"><h3>NOTICE Value</h3></div>${renderBars(groupCount(rows, 'NOTICE', () => true, 20).map(([notice]) => [notice, rows.filter((row) => (cell(row, 'NOTICE').trim() || '(blank)') === notice).reduce((sum, row) => sum + Number(rawCell(row, 'True Extended Value') || 0), 0)]), moneyFormat)}</article>
+      <article class="panel wide"><div class="panel-heading"><h3>NOTICE Value</h3></div>${renderBars(noticeValue, moneyFormat, { compact: true })}</article>
     </section>
   `;
 }

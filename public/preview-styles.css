@@ -15,6 +15,11 @@
   --nav-line: rgba(255, 255, 255, 0.1);
   --primary: #0f766e;
   --primary-strong: #0b5f59;
+  --info: #2563eb;
+  --chart-fill: #0f766e;
+  --chart-fill-strong: #0b5f59;
+  --chart-fill-soft: #2a9d8f;
+  --chart-track: #e8edf2;
   --danger: #c2410c;
   --success: #0f766e;
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.06);
@@ -732,32 +737,69 @@ col.col-xl {
 
 .bars {
   display: grid;
-  gap: 9px;
+  gap: 10px;
 }
 
 .bar-row {
   display: grid;
-  grid-template-columns: minmax(170px, 1fr) minmax(0, 3fr) minmax(58px, auto);
-  gap: 11px;
+  grid-template-columns: minmax(128px, 0.72fr) minmax(180px, 1.35fr) minmax(90px, auto);
+  gap: 13px;
   align-items: center;
+  min-height: 23px;
 }
 
-.bar-row span {
-  color: #3c4b54;
+.compact-bars .bar-row {
+  grid-template-columns: minmax(150px, 0.55fr) minmax(240px, 1.65fr) minmax(98px, auto);
+}
+
+.bar-label {
+  min-width: 0;
+  color: #20313a;
+  font-size: 0.82rem;
+  line-height: 1.24;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bar-track {
-  height: 9px;
+  position: relative;
+  height: 12px;
   overflow: hidden;
   border-radius: 999px;
-  background: #edf1f5;
+  background: var(--chart-track);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.03);
 }
 
 .bar-track span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--primary), var(--info));
+  background: linear-gradient(90deg, var(--chart-fill-strong), var(--chart-fill-soft));
+  box-shadow: 0 3px 8px rgba(15, 118, 110, 0.18);
+}
+
+.bar-row.leader .bar-track span {
+  background: linear-gradient(90deg, #0f5f59, #138f86);
+}
+
+.bar-row strong {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 7px;
+  color: #10202a;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.bar-row strong small {
+  min-width: 34px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-align: right;
 }
 
 .drop-zone {
@@ -826,6 +868,15 @@ col.col-xl {
   }
 
   .bar-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .compact-bars .bar-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bar-row strong {
+    justify-content: flex-start;
   }
 }
